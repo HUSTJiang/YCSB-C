@@ -22,6 +22,12 @@ class CounterGenerator : public Generator<uint64_t> {
   uint64_t Next() { return counter_.fetch_add(1); }
   uint64_t Last() { return counter_.load() - 1; }
   void Set(uint64_t start) { counter_.store(start); }
+  void SetAtLeast(uint64_t value) {
+    uint64_t current = counter_.load();
+    while (current < value &&
+           !counter_.compare_exchange_weak(current, value)) {
+    }
+  }
  private:
   std::atomic<uint64_t> counter_;
 };

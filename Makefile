@@ -1,33 +1,35 @@
+CXX ?= g++
 
+ROCKSDB_ROOT ?= /home/jx/LSM-Hash
+ROCKSDB_INCLUDE ?= $(ROCKSDB_ROOT)/include
+ROCKSDB_LIB_DIR ?= $(ROCKSDB_ROOT)/build
+AWS_INCLUDE ?= /usr/local/include
+AWS_LIB_DIR ?= /usr/local/lib
 
-ROCKSDB_INCLUDE=/home/ubuntu/Rocksdb_cloud/include              #Rocksdb的头文件
-ROCKSDB_LIBRARY=/home/ubuntu/Rocksdb_cloud/build/librocksdb.a   #Rocksdb的静态链接库
-ROCKSDB_LIB=/home/ubuntu/Rocksdb_cloud/build/
-AWS_INCLUDE=/usr/local/include/
+CPPFLAGS += -I. -I$(ROCKSDB_INCLUDE) -I$(AWS_INCLUDE)
+CPPFLAGS += -DUSE_AWS -DROCKSDB_USE_RTTI
+CXXFLAGS ?= -O3 -DNDEBUG
+CXXFLAGS += -std=c++20 -Wall -Wextra -pthread -MMD -MP
+LDFLAGS += -L$(ROCKSDB_LIB_DIR) -L$(AWS_LIB_DIR)
+LDFLAGS += -Wl,-rpath,$(ROCKSDB_LIB_DIR):$(AWS_LIB_DIR)
+LDLIBS += -lrocksdb -laws-cpp-sdk-s3 -laws-cpp-sdk-core -pthread -ldl
 
-CC=g++
-CFLAGS=-std=c++20 -g -Wall -pthread -I./ -I$(ROCKSDB_INCLUDE) -I$(AWS_INCLUDE) -L$(ROCKSDB_LIB) -DUSE_AWS
-#LDFLAGS= -lpthread -lrocksdb -lz -lbz2 -llz4 -ldl -lsnappy -lpmem -lnuma -lzstd
-LDFLAGS= -lpthread -lz -lbz2 -llz4 -ldl -lsnappy -lzstd ${ROCKSDB_LIBRARY} -laws-cpp-sdk-s3 -laws-cpp-sdk-core -laws-cpp-sdk-transfer -laws-cpp-sdk-kinesis 
-SUBDIRS= core db 
-SUBSRCS=$(wildcard core/*.cc) $(wildcard db/*.cc)
-OBJECTS=$(SUBSRCS:.cc=.o)
-EXEC=ycsbc
+SOURCES := ycsbc.cc $(wildcard core/*.cc) $(wildcard db/*.cc)
+OBJECTS := $(SOURCES:.cc=.o)
+DEPS := $(OBJECTS:.o=.d)
+EXEC := ycsbc
 
-all: $(SUBDIRS) $(EXEC)
+all: $(EXEC)
 
-$(SUBDIRS):
-	#$(MAKE) -C $@
-	$(MAKE) -C $@ ROCKSDB_INCLUDE=${ROCKSDB_INCLUDE} ROCKSDB_LIBRARY=${ROCKSDB_LIBRARY}
+$(EXEC): $(OBJECTS)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(EXEC): $(wildcard *.cc) $(OBJECTS)
-	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+%.o: %.cc
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir $@; \
-	done
-	$(RM) $(EXEC)
+	$(RM) $(OBJECTS) $(DEPS) $(EXEC)
 
-.PHONY: $(SUBDIRS) $(EXEC)
+-include $(DEPS)
 
+.PHONY: all clean

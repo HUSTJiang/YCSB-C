@@ -6,6 +6,8 @@
 //  Copyright (c) 2014 Jinglei Ren <jinglei@ren.systems>.
 //
 
+#include <atomic>
+#include <cinttypes>
 #include <cstring>
 #include <string>
 #include <iostream>
@@ -17,13 +19,12 @@
 #include "core/client.h"
 #include "core/core_workload.h"
 #include "db/db_factory.h"
+#include "rocksdb/perf_level.h"
 
 using namespace std;
 
-////statistics
-uint64_t ops_cnt[ycsbc::Operation::READMODIFYWRITE + 1] = {0};    //操作个数
-uint64_t ops_time[ycsbc::Operation::READMODIFYWRITE + 1] = {0};   //微秒
-////
+std::atomic<uint64_t> ops_cnt[ycsbc::Operation::READMODIFYWRITE + 1] = {};
+std::atomic<uint64_t> ops_time[ycsbc::Operation::READMODIFYWRITE + 1] = {};
 
 
 void UsageMessage(const char *command);
@@ -34,6 +35,7 @@ void PrintInfo(utils::Properties &props);
 
 int DelegateClient(ycsbc::DB *db, ycsbc::CoreWorkload *wl, const int num_ops,
     bool is_loading) {
+  rocksdb::SetPerfLevel(rocksdb::kEnableTimeAndCPUTimeExceptForMutex);
   db->Init();
   ycsbc::Client client(*db, *wl);
   int oks = 0;
@@ -92,6 +94,10 @@ int main( const int argc, const char *argv[]) {
 
     uint64_t load_start = get_now_micros();
     total_ops = stoi(props[ycsbc::CoreWorkload::RECORD_COUNT_PROPERTY]);
+    if (total_ops % num_threads != 0) {
+      cerr << "recordcount must be divisible by threadcount" << endl;
+      exit(1);
+    }
     for (int i = 0; i < num_threads; ++i) {
       actual_ops.emplace_back(async(launch::async,
           DelegateClient, db, &wl, total_ops / num_threads, true));
@@ -116,6 +122,10 @@ int main( const int argc, const char *argv[]) {
 
     actual_ops.clear();
     total_ops = stoi(props[ycsbc::CoreWorkload::OPERATION_COUNT_PROPERTY]);
+    if (total_ops % num_threads != 0) {
+      cerr << "operationcount must be divisible by threadcount" << endl;
+      exit(1);
+    }
     uint64_t run_start = get_now_micros();
     for (int i = 0; i < num_threads; ++i) {
       actual_ops.emplace_back(async(launch::async,
@@ -131,12 +141,20 @@ int main( const int argc, const char *argv[]) {
     uint64_t use_time = run_end - run_start;
 
     printf("********** run result **********\n");
-    printf("all opeartion records:%d  use time:%.3f s  IOPS:%.2f iops\n\n", sum, 1.0 * use_time*1e-6, 1.0 * sum * 1e6 / use_time );
-    if ( ops_cnt[ycsbc::INSERT] )          printf("insert ops:%7lu  use time:%7.3f s  IOPS:%7.2f iops\n", ops_cnt[ycsbc::INSERT], 1.0 * ops_time[ycsbc::INSERT]*1e-6, 1.0 * ops_cnt[ycsbc::INSERT] * 1e6 / ops_time[ycsbc::INSERT] );
-    if ( ops_cnt[ycsbc::READ] )            printf("read ops  :%7lu  use time:%7.3f s  IOPS:%7.2f iops\n", ops_cnt[ycsbc::READ], 1.0 * ops_time[ycsbc::READ]*1e-6, 1.0 * ops_cnt[ycsbc::READ] * 1e6 / ops_time[ycsbc::READ] );
-    if ( ops_cnt[ycsbc::UPDATE] )          printf("update ops:%7lu  use time:%7.3f s  IOPS:%7.2f iops\n", ops_cnt[ycsbc::UPDATE], 1.0 * ops_time[ycsbc::UPDATE]*1e-6, 1.0 * ops_cnt[ycsbc::UPDATE] * 1e6 / ops_time[ycsbc::UPDATE] );
-    if ( ops_cnt[ycsbc::SCAN] )            printf("scan ops  :%7lu  use time:%7.3f s  IOPS:%7.2f iops\n", ops_cnt[ycsbc::SCAN], 1.0 * ops_time[ycsbc::SCAN]*1e-6, 1.0 * ops_cnt[ycsbc::SCAN] * 1e6 / ops_time[ycsbc::SCAN] );
-    if ( ops_cnt[ycsbc::READMODIFYWRITE] ) printf("rmw ops   :%7lu  use time:%7.3f s  IOPS:%7.2f iops\n", ops_cnt[ycsbc::READMODIFYWRITE], 1.0 * ops_time[ycsbc::READMODIFYWRITE]*1e-6, 1.0 * ops_cnt[ycsbc::READMODIFYWRITE] * 1e6 / ops_time[ycsbc::READMODIFYWRITE] );
+    printf("all operation records:%d  use time:%.3f s  IOPS:%.2f iops\n\n", sum, 1.0 * use_time*1e-6, 1.0 * sum * 1e6 / use_time );
+    static const char* operation_names[] = {
+        "insert", "read", "update", "scan", "rmw"};
+    for (int op = ycsbc::INSERT; op <= ycsbc::READMODIFYWRITE; ++op) {
+      const uint64_t count = ops_cnt[op].load(std::memory_order_relaxed);
+      const uint64_t elapsed = ops_time[op].load(std::memory_order_relaxed);
+      if (count == 0 || elapsed == 0) {
+        continue;
+      }
+      printf("%-6s ops:%7" PRIu64
+             "  summed latency:%7.3f s  avg latency:%9.2f us\n",
+             operation_names[op], count, elapsed * 1e-6,
+             static_cast<double>(elapsed) / count);
+    }
     printf("********************************\n");
   }
   if ( print_stats ) {
@@ -252,6 +270,22 @@ string ParseCommandLine(int argc, const char *argv[], utils::Properties &props) 
       }
       props.SetProperty("dbwaitforbalance",argv[argindex]);
       argindex++;
+    } else if (strcmp(argv[argindex], "-p") == 0) {
+      argindex++;
+      if (argindex >= argc) {
+        UsageMessage(argv[0]);
+        exit(1);
+      }
+      const std::string property(argv[argindex]);
+      const size_t separator = property.find('=');
+      if (separator == std::string::npos || separator == 0) {
+        cout << "Invalid property override '" << property
+             << "'; expected name=value" << endl;
+        exit(1);
+      }
+      props.SetProperty(property.substr(0, separator),
+                        property.substr(separator + 1));
+      argindex++;
     } else if (strcmp(argv[argindex], "-P") == 0) {
       argindex++;
       if (argindex >= argc) {
@@ -289,6 +323,7 @@ void UsageMessage(const char *command) {
   cout << "  -db dbname: specify the name of the DB to use (default: basic)" << endl;
   cout << "  -P propertyfile: load properties from the given file. Multiple files can" << endl;
   cout << "                   be specified, and will be processed in the order specified" << endl;
+  cout << "  -p name=value: override a workload or database property" << endl;
 }
 
 inline bool StrStartWith(const char *str, const char *pre) {

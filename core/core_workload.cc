@@ -92,6 +92,7 @@ void CoreWorkload::Init(const utils::Properties &p) {
       READMODIFYWRITE_PROPORTION_PROPERTY, READMODIFYWRITE_PROPORTION_DEFAULT));
   
   record_count_ = std::stoi(p.GetProperty(RECORD_COUNT_PROPERTY));
+  key_length_ = std::stoull(p.GetProperty("keylength", "0"));
   std::string request_dist = p.GetProperty(REQUEST_DISTRIBUTION_PROPERTY,
                                            REQUEST_DISTRIBUTION_DEFAULT);
   int max_scan_len = std::stoi(p.GetProperty(MAX_SCAN_LENGTH_PROPERTY,
@@ -197,4 +198,3 @@ void CoreWorkload::BuildUpdate(std::vector<ycsbc::DB::KVPair> &update) {
   pair.second.append(field_len_generator_->Next(), utils::RandomPrintChar());
   update.push_back(pair);
 }
-

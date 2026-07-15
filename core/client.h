@@ -9,13 +9,16 @@
 #ifndef YCSB_C_CLIENT_H_
 #define YCSB_C_CLIENT_H_
 
+#include <atomic>
 #include <string>
 #include "db.h"
 #include "core_workload.h"
 #include "utils.h"
 
-extern uint64_t ops_cnt[ycsbc::Operation::READMODIFYWRITE + 1] ;    //操作个数
-extern uint64_t ops_time[ycsbc::Operation::READMODIFYWRITE + 1] ;   //微秒
+extern std::atomic<uint64_t>
+    ops_cnt[ycsbc::Operation::READMODIFYWRITE + 1];
+extern std::atomic<uint64_t>
+    ops_time[ycsbc::Operation::READMODIFYWRITE + 1];
 
 namespace ycsbc {
 
@@ -54,42 +57,47 @@ inline bool Client::DoTransaction() {
   switch (workload_.NextOperation()) {
     case READ:
       status = TransactionRead();
-      ops_time[READ] += (get_now_micros() - start_time );
+      ops_time[READ].fetch_add(get_now_micros() - start_time,
+                               std::memory_order_relaxed);
       // op_time = (get_now_micros() - start_time );
       // ops_time[READ] += op_time;
-      ops_cnt[READ]++;
+      ops_cnt[READ].fetch_add(1, std::memory_order_relaxed);
       // db_.RecordTime(2,op_time);
       break;
     case UPDATE:
       status = TransactionUpdate();
-      ops_time[UPDATE] += (get_now_micros() - start_time );
+      ops_time[UPDATE].fetch_add(get_now_micros() - start_time,
+                                 std::memory_order_relaxed);
       // op_time = (get_now_micros() - start_time );
       // ops_time[UPDATE] += op_time;
-      ops_cnt[UPDATE]++;
+      ops_cnt[UPDATE].fetch_add(1, std::memory_order_relaxed);
       // db_.RecordTime(3,op_time);
       break;
     case INSERT:
       status = TransactionInsert();
-      ops_time[INSERT] += (get_now_micros() - start_time );
+      ops_time[INSERT].fetch_add(get_now_micros() - start_time,
+                                 std::memory_order_relaxed);
       // op_time = (get_now_micros() - start_time );
       // ops_time[INSERT] += op_time;
-      ops_cnt[INSERT]++;
+      ops_cnt[INSERT].fetch_add(1, std::memory_order_relaxed);
       // db_.RecordTime(1,op_time);
       break;
     case SCAN:
       status = TransactionScan();
-      ops_time[SCAN] += (get_now_micros() - start_time );
+      ops_time[SCAN].fetch_add(get_now_micros() - start_time,
+                               std::memory_order_relaxed);
       // op_time = (get_now_micros() - start_time );
       // ops_time[SCAN] += op_time;
-      ops_cnt[SCAN]++;
+      ops_cnt[SCAN].fetch_add(1, std::memory_order_relaxed);
       // db_.RecordTime(4,op_time);
       break;
     case READMODIFYWRITE:
       status = TransactionReadModifyWrite();
-      ops_time[READMODIFYWRITE] += (get_now_micros() - start_time );
+      ops_time[READMODIFYWRITE].fetch_add(get_now_micros() - start_time,
+                                          std::memory_order_relaxed);
       // op_time = (get_now_micros() - start_time );
       // ops_time[READMODIFYWRITE] += op_time;
-      ops_cnt[READMODIFYWRITE]++;
+      ops_cnt[READMODIFYWRITE].fetch_add(1, std::memory_order_relaxed);
       // db_.RecordTime(5,op_time);
       break;
     default:
@@ -162,10 +170,16 @@ inline int Client::TransactionUpdate() {
 
 inline int Client::TransactionInsert() {
   const std::string &table = workload_.NextTable();
-  const std::string &key = workload_.NextSequenceKey();
   std::vector<DB::KVPair> values;
   workload_.BuildValues(values);
-  return db_.Insert(table, key, values);
+  std::lock_guard<std::mutex> lock(workload_.transaction_insert_mutex());
+  uint64_t key_num;
+  const std::string key = workload_.NextTransactionInsertKey(&key_num);
+  const int status = db_.Insert(table, key, values);
+  if (status == DB::kOK) {
+    workload_.RecordInsertedKey(key_num);
+  }
+  return status;
 } 
 
 } // ycsbc

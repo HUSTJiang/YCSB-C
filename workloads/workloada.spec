@@ -3,13 +3,15 @@
 #   Application example: Session store recording recent actions
 #                        
 #   Read/update ratio: 50/50
-#   Default data size: 1 KB records (10 fields, 100 bytes each, plus key)
+#   Data shape: one raw 12-byte value with a 74-byte key
 #   Request distribution: zipfian
 fieldcount=1
-fieldlength=1024
+fieldlength=12
+keylength=74
+rawvalues=true
 
-recordcount=100000000
-operationcount=10000000
+recordcount=50000000
+operationcount=500000
 workload=com.yahoo.ycsb.workloads.CoreWorkload
 
 readallfields=true

@@ -1,80 +1,57 @@
-//
-// 
-//
-
 #ifndef YCSB_C_ROCKSDB_DB_H
 #define YCSB_C_ROCKSDB_DB_H
 
-#include "core/db.h"
-#include <iostream>
+#include <atomic>
+#include <cstdint>
+#include <memory>
 #include <string>
-#include "core/properties.h"
-#include <rocksdb/cloud/db_cloud.h>
-// #include <hdr/hdr_histogram.h>
-// #include <fstream>
-// #include <sys/time.h>
+#include <vector>
 
-using std::cout;
-using std::endl;
+#include "core/db.h"
+#include "core/properties.h"
+#include "rocksdb/cloud/db_cloud.h"
+#include "rocksdb/env.h"
+#include "rocksdb/statistics.h"
 
 namespace ycsbc {
-    class RocksDB : public DB{
-    public :
-        // struct hdr_histogram* hdr_ = NULL;
-        // struct hdr_histogram* hdr_last_1s_ = NULL;
-        // struct hdr_histogram* hdr_get_= NULL;
-        // struct hdr_histogram* hdr_put_= NULL;
-        // struct hdr_histogram* hdr_update_ = NULL;
-        // struct hdr_histogram* hdr_scan_ = NULL;
-        // struct hdr_histogram* hdr_delete_ = NULL;
-        // struct hdr_histogram* hdr_rmw_ = NULL;
 
-        // void latency_hiccup(uint64_t iops);
-        // std::FILE* f_hdr_output_;
-        // std::FILE* f_hdr_hiccup_output_;
+class RocksDB : public DB {
+ public:
+  RocksDB(const char* dbfilename, utils::Properties& props);
+  ~RocksDB() override;
 
-        RocksDB(const char *dbfilename, utils::Properties &props);
-        int Read(const std::string &table, const std::string &key,
-                 const std::vector<std::string> *fields,
-                 std::vector<KVPair> &result);
+  int Read(const std::string& table, const std::string& key,
+           const std::vector<std::string>* fields,
+           std::vector<KVPair>& result) override;
+  int Scan(const std::string& table, const std::string& key, int len,
+           const std::vector<std::string>* fields,
+           std::vector<std::vector<KVPair>>& result) override;
+  int Insert(const std::string& table, const std::string& key,
+             std::vector<KVPair>& values) override;
+  int Update(const std::string& table, const std::string& key,
+             std::vector<KVPair>& values) override;
+  int Delete(const std::string& table, const std::string& key) override;
 
-        int Scan(const std::string &table, const std::string &key,
-                 int len, const std::vector<std::string> *fields,
-                 std::vector<std::vector<KVPair>> &result);
+  void PrintStats() override;
+  bool HaveBalancedDistribution() override;
 
-        int Insert(const std::string &table, const std::string &key,
-                   std::vector<KVPair> &values);
+ private:
+  rocksdb::DB* db_;
+  bool cloud_db_;
+  bool raw_values_;
+  std::atomic<uint64_t> no_result_;
+  std::unique_ptr<rocksdb::Env> cloud_env_;
+  std::shared_ptr<rocksdb::Statistics> statistics_;
 
-        int Update(const std::string &table, const std::string &key,
-                   std::vector<KVPair> &values);
+  void SetOptions(rocksdb::Options* options,
+                  const utils::Properties& props,
+                  const char* dbfilename);
+  void SerializeValues(const std::vector<KVPair>& kvs,
+                       std::string& value) const;
+  void DeSerializeValues(const std::string& value,
+                         std::vector<KVPair>& kvs) const;
+};
 
+}  // namespace ycsbc
 
-        int Delete(const std::string &table, const std::string &key);
-
-        // void RecordTime(int op,uint64_t tx_xtime);
-
-        void PrintStats();
-
-        bool HaveBalancedDistribution();
-
-        // uint64_t get_now_micros(){
-        //     struct timeval tv;
-        //     gettimeofday(&tv, NULL);
-        //     return (tv.tv_sec) * 1000000 + tv.tv_usec;
-        // }
-
-        ~RocksDB();
-
-    private:
-        rocksdb::DBCloud *db_;
-        unsigned noResult;
-
-        void SetOptions(rocksdb::Options *options, utils::Properties &props, const char *dbfilename);
-        void SerializeValues(std::vector<KVPair> &kvs, std::string &value);
-        void DeSerializeValues(std::string &value, std::vector<KVPair> &kvs);
-
-    };
-}
-
-
-#endif //YCSB_C_ROCKSDB_DB_H
+#endif  // YCSB_C_ROCKSDB_DB_H

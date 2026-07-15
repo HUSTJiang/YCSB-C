@@ -3,6 +3,7 @@
 *.lo
 *.o
 *.obj
+*.d
 
 # Precompiled Headers
 *.gch
@@ -40,6 +41,7 @@
 .vscode
 redis/sample
 ycsbc
+/results/
 
 NVM_LOG
 compaction.csv

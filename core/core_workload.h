@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <string>
+#include <mutex>
 #include "db.h"
 #include "properties.h"
 #include "generator.h"
@@ -144,6 +145,7 @@ class CoreWorkload {
   
   virtual std::string NextTable() { return table_name_; }
   virtual std::string NextSequenceKey(); /// Used for loading data
+  virtual std::string NextTransactionInsertKey(uint64_t *key_num);
   virtual std::string NextTransactionKey(); /// Used for transactions
   virtual Operation NextOperation() { return op_chooser_.Next(); }
   virtual std::string NextFieldName();
@@ -151,12 +153,16 @@ class CoreWorkload {
   
   bool read_all_fields() const { return read_all_fields_; }
   bool write_all_fields() const { return write_all_fields_; }
+  std::mutex &transaction_insert_mutex() { return transaction_insert_mutex_; }
+  void RecordInsertedKey(uint64_t key_num) {
+    insert_key_sequence_.SetAtLeast(key_num + 1);
+  }
 
   CoreWorkload() :
       field_count_(0), read_all_fields_(false), write_all_fields_(false),
       field_len_generator_(NULL), key_generator_(NULL), key_chooser_(NULL),
       field_chooser_(NULL), scan_len_chooser_(NULL), insert_key_sequence_(3),
-      ordered_inserts_(true), record_count_(0) {
+      ordered_inserts_(true), record_count_(0), key_length_(0) {
   }
   
   virtual ~CoreWorkload() {
@@ -184,11 +190,18 @@ class CoreWorkload {
   CounterGenerator insert_key_sequence_;
   bool ordered_inserts_;
   size_t record_count_;
+  size_t key_length_;
+  std::mutex transaction_insert_mutex_;
 };
 
 inline std::string CoreWorkload::NextSequenceKey() {
   uint64_t key_num = key_generator_->Next();
   return BuildKeyName(key_num);
+}
+
+inline std::string CoreWorkload::NextTransactionInsertKey(uint64_t *key_num) {
+  *key_num = key_generator_->Next();
+  return BuildKeyName(*key_num);
 }
 
 inline std::string CoreWorkload::NextTransactionKey() {
@@ -203,7 +216,14 @@ inline std::string CoreWorkload::BuildKeyName(uint64_t key_num) {
   if (!ordered_inserts_) {
     key_num = utils::Hash(key_num);
   }
-  return std::string("user").append(std::to_string(key_num));
+  const std::string prefix = "user";
+  const std::string suffix = std::to_string(key_num);
+  if (key_length_ <= prefix.size() + suffix.size()) {
+    return prefix + suffix;
+  }
+  return prefix +
+         std::string(key_length_ - prefix.size() - suffix.size(), '0') +
+         suffix;
 }
 
 inline std::string CoreWorkload::NextFieldName() {
