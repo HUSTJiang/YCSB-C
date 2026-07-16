@@ -3,7 +3,7 @@
 #   Application example: threaded conversations, where each scan is for the posts in a given thread (assumed to be clustered by thread id)
 #                        
 #   Scan/insert ratio: 95/5
-#   Default data size: 1 KB records (10 fields, 100 bytes each, plus key)
+#   Data shape: one raw 1 KiB value with a 16-byte key
 #   Request distribution: zipfian
 
 # The insert order is hashed, not ordered. Although the scans are ordered, it does not necessarily
@@ -12,9 +12,11 @@
 # key, and then request a number of records; this works fine even for hashed insertion.
 fieldcount=1
 fieldlength=1024
+keylength=16
+rawvalues=true
 
-recordcount=100000000
-operationcount=100000
+recordcount=50000000
+operationcount=1000000
 workload=com.yahoo.ycsb.workloads.CoreWorkload
 
 readallfields=true
@@ -29,5 +31,3 @@ requestdistribution=zipfian
 maxscanlength=100
 
 scanlengthdistribution=uniform
-
-

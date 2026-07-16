@@ -45,3 +45,5 @@ ycsbc
 
 NVM_LOG
 compaction.csv
+all_test
+test

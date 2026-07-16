@@ -12,15 +12,15 @@ record_count="${RECORD_COUNT:-50000000}"
 operation_count_override="${OPERATION_COUNT:-}"
 workload_names="${WORKLOADS:-a b c d f}"
 
-workload_a_ops="${WORKLOAD_A_OPS:-${operation_count_override:-500000}}"
-workload_b_ops="${WORKLOAD_B_OPS:-${operation_count_override:-200000}}"
-workload_c_ops="${WORKLOAD_C_OPS:-${operation_count_override:-200000}}"
-workload_d_ops="${WORKLOAD_D_OPS:-${operation_count_override:-200000}}"
-workload_e_ops="${WORKLOAD_E_OPS:-${operation_count_override:-10000}}"
-workload_f_ops="${WORKLOAD_F_OPS:-${operation_count_override:-200000}}"
+workload_a_ops="${WORKLOAD_A_OPS:-${operation_count_override:-5000000}}"
+workload_b_ops="${WORKLOAD_B_OPS:-${operation_count_override:-1000000}}"
+workload_c_ops="${WORKLOAD_C_OPS:-${operation_count_override:-1000000}}"
+workload_d_ops="${WORKLOAD_D_OPS:-${operation_count_override:-1000000}}"
+workload_e_ops="${WORKLOAD_E_OPS:-${operation_count_override:-1000000}}"
+workload_f_ops="${WORKLOAD_F_OPS:-${operation_count_override:-1000000}}"
 
-key_length="${KEY_LENGTH:-74}"
-field_length="${FIELD_LENGTH:-12}"
+key_length="${KEY_LENGTH:-16}"
+field_length="${FIELD_LENGTH:-1024}"
 num_levels="${NUM_LEVELS:-7}"
 hot_file_level_limit="${HOT_FILE_LEVEL_LIMIT:-1}"
 hash_fanout="${HASH_FANOUT:-4}"
@@ -30,6 +30,7 @@ max_background_jobs="${MAX_BACKGROUND_JOBS:-8}"
 max_subcompactions="${MAX_SUBCOMPACTIONS:-1}"
 block_cache_size="${BLOCK_CACHE_SIZE:-0}"
 bloom_bits="${BLOOM_BITS:-10}"
+disable_trivial_move="${DISABLE_TRIVIAL_MOVE:-true}"
 
 run_id="${RUN_ID:-$(date +%Y%m%d-%H%M%S)}"
 data_root="${DATA_ROOT:-/localdata/benchmark}"
@@ -102,6 +103,7 @@ mkdir -p "${result_dir}" \
   echo "max_subcompactions=${max_subcompactions}"
   echo "block_cache_size=${block_cache_size}"
   echo "bloom_bits=${bloom_bits}"
+  echo "disable_trivial_move=${disable_trivial_move}"
   echo "bucket=${bucket}"
   echo "region=${region}"
   echo "result_dir=${result_dir}"
@@ -199,6 +201,7 @@ run_ycsb_phase() {
       -p "num_levels=${num_levels}" \
       -p "hot_file_level_limit=${hot_file_level_limit}" \
       -p "hash_fanout=${fanout}" \
+      -p "disable_trivial_move=${disable_trivial_move}" \
       -p "write_buffer_size=${write_buffer_size}" \
       -p "target_file_size_base=${target_file_size_base}" \
       -p "max_background_jobs=${max_background_jobs}" \
