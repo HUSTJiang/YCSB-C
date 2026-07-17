@@ -36,6 +36,9 @@ This branch compares the current RocksDB-Cloud baseline with LSM-Hash from
 
 - RocksDB-Cloud: `hash_fanout=0`
 - LSM-Hash: `hash_fanout=4`
+- non-bottom buckets become eligible at `hash_compaction_trigger=4`; the
+  default `hash_compaction_file_limit=0` drains every available source file
+  independently of fanout; bottom self-compaction remains uncapped
 - L0-L1 SSTs stay local and L2+ SSTs are stored in S3
 - one DB path is used; CloudFS derives its local `hot` and `cold` subdirectories
 - block cache is disabled
@@ -88,7 +91,9 @@ separate YCSB log, network log, and `iostat` log. Set `RESULT_ROOT`,
 `DATA_ROOT`, `WAL_ROOT`, `IO_DEVICE`, or the uppercase option variables in
 `run.sh` to override the defaults. `OPERATION_COUNT` overrides every selected
 workload, while `WORKLOAD_A_OPS` through `WORKLOAD_F_OPS` provide independent
-overrides.
+overrides. `HASH_COMPACTION_TRIGGER` changes the non-bottom source-bucket
+high-water mark. `HASH_COMPACTION_FILE_LIMIT` optionally caps a selected batch;
+zero means unlimited. Neither option changes `HASH_FANOUT`.
 
 `run.sh` treats `testbucket1-jx` as a dedicated benchmark bucket. It deletes
 all current objects before the run and after each database case, including

@@ -88,6 +88,10 @@ void RocksDB::SetOptions(rocksdb::Options* options,
       static_cast<int>(GetUint64(props, "hot_file_level_limit", 1));
   options->hash_fanout =
       static_cast<uint32_t>(GetUint64(props, "hash_fanout", 0));
+  options->hash_compaction_trigger = static_cast<uint32_t>(
+      GetUint64(props, "hash_compaction_trigger", 4));
+  options->hash_compaction_file_limit = static_cast<uint32_t>(
+      GetUint64(props, "hash_compaction_file_limit", 0));
   options->disable_trivial_move =
       GetBool(props, "disable_trivial_move", true);
   options->write_buffer_size =

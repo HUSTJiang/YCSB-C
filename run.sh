@@ -66,6 +66,8 @@ field_length="${FIELD_LENGTH:-${profile_field_length}}"
 num_levels="${NUM_LEVELS:-7}"
 hot_file_level_limit="${HOT_FILE_LEVEL_LIMIT:-1}"
 hash_fanout="${HASH_FANOUT:-4}"
+hash_compaction_trigger="${HASH_COMPACTION_TRIGGER:-4}"
+hash_compaction_file_limit="${HASH_COMPACTION_FILE_LIMIT:-0}"
 write_buffer_size="${WRITE_BUFFER_SIZE:-$((128 * 1024 * 1024))}"
 target_file_size_base="${TARGET_FILE_SIZE_BASE:-$((32 * 1024 * 1024))}"
 max_background_jobs="${MAX_BACKGROUND_JOBS:-8}"
@@ -140,6 +142,8 @@ mkdir -p "${result_dir}" \
   echo "num_levels=${num_levels}"
   echo "hot_file_level_limit=${hot_file_level_limit}"
   echo "hash_fanout=${hash_fanout}"
+  echo "hash_compaction_trigger=${hash_compaction_trigger}"
+  echo "hash_compaction_file_limit=${hash_compaction_file_limit}"
   echo "write_buffer_size=${write_buffer_size}"
   echo "target_file_size_base=${target_file_size_base}"
   echo "max_background_jobs=${max_background_jobs}"
@@ -244,6 +248,8 @@ run_ycsb_phase() {
       -p "num_levels=${num_levels}" \
       -p "hot_file_level_limit=${hot_file_level_limit}" \
       -p "hash_fanout=${fanout}" \
+      -p "hash_compaction_trigger=${hash_compaction_trigger}" \
+      -p "hash_compaction_file_limit=${hash_compaction_file_limit}" \
       -p "disable_trivial_move=${disable_trivial_move}" \
       -p "write_buffer_size=${write_buffer_size}" \
       -p "target_file_size_base=${target_file_size_base}" \
