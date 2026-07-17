@@ -64,6 +64,19 @@ each. This results in about 6.4 million read-path accesses per database case.
 Workload F performs a read for both its READ and READ_MODIFY_WRITE operations,
 so all 1 million F operations access the read path.
 
+Three profile entry points reproduce the tested data shapes and operation
+counts while sharing the implementation in `run.sh`:
+
+| Script | Records | Key / value | A operations | B/C/D/F operations |
+| --- | ---: | --- | ---: | ---: |
+| `run_74b_12b.sh` | 50 million | 74 B / 12 B | 500,000 | 200,000 |
+| `run_16b_1024b_1000w.sh` | 10 million | 16 B / 1 KiB | 500,000 | 100,000 |
+| `run_16b_1024b_5000w.sh` | 50 million | 16 B / 1 KiB | 5 million | 1 million |
+
+`run.sh` defaults to the 50-million-record 16 B / 1 KiB profile. The same
+profile can also be selected with `BENCHMARK_PROFILE`; explicit variables such
+as `RECORD_COUNT`, `KEY_LENGTH`, and `WORKLOAD_A_OPS` still take precedence.
+
 ```bash
 ./run.sh
 WORKLOAD_A_OPS=8000000 WORKLOAD_C_OPS=2000000 ./run.sh

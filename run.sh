@@ -7,20 +7,62 @@ ycsbc="${YCSBC:-${repo_root}/ycsbc}"
 bucket="${BUCKET:-testbucket1-jx}"
 region="${REGION:-ap-northeast-1}"
 
+benchmark_profile="${BENCHMARK_PROFILE:-16b-1024b-5000w}"
+case "${benchmark_profile}" in
+  74b-12b)
+    profile_record_count=50000000
+    profile_workload_a_ops=500000
+    profile_workload_b_ops=200000
+    profile_workload_c_ops=200000
+    profile_workload_d_ops=200000
+    profile_workload_e_ops=10000
+    profile_workload_f_ops=200000
+    profile_key_length=74
+    profile_field_length=12
+    ;;
+  16b-1024b-1000w)
+    profile_record_count=10000000
+    profile_workload_a_ops=500000
+    profile_workload_b_ops=100000
+    profile_workload_c_ops=100000
+    profile_workload_d_ops=100000
+    profile_workload_e_ops=10000
+    profile_workload_f_ops=100000
+    profile_key_length=16
+    profile_field_length=1024
+    ;;
+  16b-1024b-5000w)
+    profile_record_count=50000000
+    profile_workload_a_ops=5000000
+    profile_workload_b_ops=1000000
+    profile_workload_c_ops=1000000
+    profile_workload_d_ops=1000000
+    profile_workload_e_ops=1000000
+    profile_workload_f_ops=1000000
+    profile_key_length=16
+    profile_field_length=1024
+    ;;
+  *)
+    echo "Unknown BENCHMARK_PROFILE '${benchmark_profile}'." >&2
+    echo "Expected: 74b-12b, 16b-1024b-1000w, or 16b-1024b-5000w." >&2
+    exit 1
+    ;;
+esac
+
 threads="${THREADS:-8}"
-record_count="${RECORD_COUNT:-50000000}"
+record_count="${RECORD_COUNT:-${profile_record_count}}"
 operation_count_override="${OPERATION_COUNT:-}"
 workload_names="${WORKLOADS:-a b c d f}"
 
-workload_a_ops="${WORKLOAD_A_OPS:-${operation_count_override:-5000000}}"
-workload_b_ops="${WORKLOAD_B_OPS:-${operation_count_override:-1000000}}"
-workload_c_ops="${WORKLOAD_C_OPS:-${operation_count_override:-1000000}}"
-workload_d_ops="${WORKLOAD_D_OPS:-${operation_count_override:-1000000}}"
-workload_e_ops="${WORKLOAD_E_OPS:-${operation_count_override:-1000000}}"
-workload_f_ops="${WORKLOAD_F_OPS:-${operation_count_override:-1000000}}"
+workload_a_ops="${WORKLOAD_A_OPS:-${operation_count_override:-${profile_workload_a_ops}}}"
+workload_b_ops="${WORKLOAD_B_OPS:-${operation_count_override:-${profile_workload_b_ops}}}"
+workload_c_ops="${WORKLOAD_C_OPS:-${operation_count_override:-${profile_workload_c_ops}}}"
+workload_d_ops="${WORKLOAD_D_OPS:-${operation_count_override:-${profile_workload_d_ops}}}"
+workload_e_ops="${WORKLOAD_E_OPS:-${operation_count_override:-${profile_workload_e_ops}}}"
+workload_f_ops="${WORKLOAD_F_OPS:-${operation_count_override:-${profile_workload_f_ops}}}"
 
-key_length="${KEY_LENGTH:-16}"
-field_length="${FIELD_LENGTH:-1024}"
+key_length="${KEY_LENGTH:-${profile_key_length}}"
+field_length="${FIELD_LENGTH:-${profile_field_length}}"
 num_levels="${NUM_LEVELS:-7}"
 hot_file_level_limit="${HOT_FILE_LEVEL_LIMIT:-1}"
 hash_fanout="${HASH_FANOUT:-4}"
@@ -85,6 +127,7 @@ mkdir -p "${result_dir}" \
   "${lsm_hash_path}" "${lsm_hash_wal}"
 
 {
+  echo "benchmark_profile=${benchmark_profile}"
   echo "run_id=${run_id}"
   echo "threads=${threads}"
   echo "record_count=${record_count}"
