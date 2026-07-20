@@ -83,7 +83,16 @@ void RocksDB::SetOptions(rocksdb::Options* options,
                          const char* dbfilename) {
   options->create_if_missing = true;
   options->compression = rocksdb::kNoCompression;
+  const uint64_t compaction_style =
+      GetUint64(props, "compaction_style", rocksdb::kCompactionStyleLevel);
+  if (compaction_style > rocksdb::kCompactionStyleUniversal) {
+    Fail("compaction_style must be 0 (level) or 1 (universal)");
+  }
+  options->compaction_style =
+      static_cast<rocksdb::CompactionStyle>(compaction_style);
   options->num_levels = static_cast<int>(GetUint64(props, "num_levels", 7));
+  options->level0_file_num_compaction_trigger = static_cast<int>(
+      GetUint64(props, "level0_file_num_compaction_trigger", 4));
   options->hot_file_level_limit =
       static_cast<int>(GetUint64(props, "hot_file_level_limit", 1));
   options->hash_fanout =
@@ -94,6 +103,18 @@ void RocksDB::SetOptions(rocksdb::Options* options,
       GetUint64(props, "hash_compaction_file_limit", 0));
   options->disable_trivial_move =
       GetBool(props, "disable_trivial_move", true);
+  auto& universal = options->compaction_options_universal;
+  universal.size_ratio = static_cast<unsigned int>(
+      GetUint64(props, "universal_size_ratio", universal.size_ratio));
+  universal.min_merge_width = static_cast<unsigned int>(GetUint64(
+      props, "universal_min_merge_width", universal.min_merge_width));
+  universal.max_size_amplification_percent =
+      static_cast<unsigned int>(GetUint64(
+          props, "universal_max_size_amplification_percent",
+          universal.max_size_amplification_percent));
+  universal.allow_trivial_move =
+      GetBool(props, "universal_allow_trivial_move", false);
+  universal.incremental = GetBool(props, "universal_incremental", false);
   options->write_buffer_size =
       GetUint64(props, "write_buffer_size", 128ULL * kMiB);
   options->target_file_size_base =

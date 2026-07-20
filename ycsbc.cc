@@ -158,9 +158,9 @@ int main( const int argc, const char *argv[]) {
     printf("********************************\n");
   }
   if ( print_stats ) {
-    printf("-------------- db statistics --------------\n");
+    printf("-------- db statistics before balance --------\n");
     db->PrintStats();
-    printf("-------------------------------------------\n");
+    printf("----------------------------------------------\n");
   }
   if ( wait_for_balance ) {
     uint64_t sleep_time = 0;
@@ -170,9 +170,9 @@ int main( const int argc, const char *argv[]) {
     }
     printf("Wait balance:%lu s\n",sleep_time);
 
-    printf("-------------- db statistics --------------\n");
+    printf("--------- db statistics after balance ---------\n");
     db->PrintStats();
-    printf("-------------------------------------------\n");
+    printf("----------------------------------------------\n");
   }
   delete db;
   return 0;

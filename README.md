@@ -34,7 +34,8 @@ files in the workloads dir.
 This branch compares the current RocksDB-Cloud baseline with LSM-Hash from
 `/home/jx/LSM-Hash`:
 
-- RocksDB-Cloud: `hash_fanout=0`
+- RocksDB-Cloud leveled: `hash_fanout=0`, `compaction_style=0`
+- RocksDB-Cloud tiering: `hash_fanout=0`, `compaction_style=1` (Universal)
 - LSM-Hash: `hash_fanout=4`
 - non-bottom buckets become eligible at `hash_compaction_trigger=4`; the
   default `hash_compaction_file_limit=0` drains every available source file
@@ -57,7 +58,9 @@ When the repositories are under `/home/ubuntu` on EC2:
 make ROCKSDB_ROOT=/home/ubuntu/LSM-Hash -j72
 ```
 
-The main comparison script is `run.sh`. Its defaults match the corresponding
+The main comparison script is `run.sh`. It runs RocksDB-Cloud leveled,
+RocksDB-Cloud Universal/Tiering, and LSM-Hash in sequence. Its defaults match
+the corresponding
 `real_test.sh` RocksDB settings: 8 client threads, 7 levels, 128 MiB MemTable,
 32 MiB target SST, 8 background jobs, one subcompaction, 10 Bloom bits, no
 compression, direct I/O, and no block cache. It sequentially loads 50 million
@@ -94,6 +97,27 @@ workload, while `WORKLOAD_A_OPS` through `WORKLOAD_F_OPS` provide independent
 overrides. `HASH_COMPACTION_TRIGGER` changes the non-bottom source-bucket
 high-water mark. `HASH_COMPACTION_FILE_LIMIT` optionally caps a selected batch;
 zero means unlimited. Neither option changes `HASH_FANOUT`.
+
+The tiering case uses the standard Universal defaults explicitly: size ratio
+1, minimum merge width 2, maximum size amplification 200%, no incremental
+compaction, and no Universal trivial move. Override them with
+`UNIVERSAL_SIZE_RATIO`, `UNIVERSAL_MIN_MERGE_WIDTH`,
+`UNIVERSAL_MAX_SIZE_AMPLIFICATION_PERCENT`,
+`UNIVERSAL_ALLOW_TRIVIAL_MOVE`, and `UNIVERSAL_INCREMENTAL`. All three cases
+use `LEVEL0_FILE_NUM_COMPACTION_TRIGGER=4` by default. Universal output paths
+are selected from the physical output level, so L0-L1 remain under `hot` and
+L2+ are written under `cold` for CloudFS upload.
+
+LSM-Hash phases also emit two dedicated monitor files. `*-hash-buckets.log`
+contains the per-logical-level non-empty bucket count, SST bytes, busy files,
+trigger backlog, P95 files per bucket, and the largest bucket. Each YCSB phase
+labels snapshots as `before_balance` and `after_balance`, so compaction backlog
+created by the foreground workload can be distinguished from the drained state.
+`*-hash-compactions.log` contains structured `compaction_started` and
+`compaction_finished` events for Hash compactions, including source/target
+logical levels and partition IDs, source and bottom-overlap bytes, output size,
+wall/CPU time, subcompaction count, and file I/O timing. These files are
+captured separately for Load and every selected YCSB workload.
 
 `run.sh` treats `testbucket1-jx` as a dedicated benchmark bucket. It deletes
 all current objects before the run and after each database case, including
